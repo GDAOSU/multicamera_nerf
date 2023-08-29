@@ -412,12 +412,12 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
 # num_split=4
 # scene_box_path=r''
 #bordaux
-# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense'
-# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks_test'
-# num_split=4
-# scene_box_path=r''
-# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
-# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\dense_2'
+out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\blocks_2_16'
+num_split=4
+scene_box_path=r''
+#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
 #dortmund blocks36
 # in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense'
@@ -437,9 +437,9 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
 
 
 #geomvs test2
-in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\dense'
-out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2'
-num_split=2
-scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2\scene_bbox.txt'
-#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
-split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\dense'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2'
+# num_split=2
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)

@@ -88,7 +88,7 @@ class Field(nn.Module):
             self._density_before_activation,
             self._sample_locations,
             grad_outputs=torch.ones_like(self._density_before_activation),
-            retain_graph=True,
+            retain_graph=True, allow_unused=True
         )[0]
 
         normals = -torch.nn.functional.normalize(normals, dim=-1)

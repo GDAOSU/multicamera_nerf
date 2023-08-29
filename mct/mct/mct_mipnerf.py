@@ -29,19 +29,19 @@ from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.field_components.encodings import NeRFEncoding
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.fields.vanilla_nerf_field import NeRFField
-from nerfstudio.model_components.losses import MSELoss, nerfstudio_distortion_loss
+from nerfstudio.model_components.losses import (
+    MSELoss,
+    distortion_loss,
+    interlevel_loss,
+    nerfstudio_distortion_loss,
+    orientation_loss,
+    pred_normal_loss,
+)
 from nerfstudio.model_components.ray_samplers import PDFSampler, UniformSampler
 from nerfstudio.model_components.renderers import (
     AccumulationRenderer,
     DepthRenderer,
     RGBRenderer,
-)
-from nerfstudio.model_components.losses import (
-    MSELoss,
-    distortion_loss,
-    interlevel_loss,
-    orientation_loss,
-    pred_normal_loss,
 )
 from nerfstudio.model_components.scene_colliders import AABBBoxCollider, NearFarCollider
 from nerfstudio.models.base_model import Model, ModelConfig
@@ -128,8 +128,16 @@ class MCTMipNerfModel(Model):
         ray_samples_pdf = self.sampler_pdf(ray_bundle, ray_samples_uniform, weights_coarse)
 
         # Second pass:
+
         field_outputs_fine = self.field.forward(ray_samples_pdf)
         weights_fine = ray_samples_pdf.get_weights(field_outputs_fine[FieldHeadNames.DENSITY])
+        # self.field._sample_locations=ray_samples_pdf.frustums.get_gaussian_blob().mean
+        # self.field._density_before_activation=field_outputs_fine[FieldHeadNames.DENSITY]
+        # if not self.field._sample_locations.requires_grad:
+        #     self.field._sample_locations.requires_grad = True
+        # if not self.field._density_before_activation.requires_grad:
+        #     self.field._density_before_activation.requires_grad = True
+        # normals=self.field.get_normals()
         rgb_fine = self.renderer_rgb(
             rgb=field_outputs_fine[FieldHeadNames.RGB],
             weights=weights_fine,

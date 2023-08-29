@@ -311,7 +311,7 @@ def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_f
 #block36
 render_novel_view_mct(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks_2_36',
                       r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36',
-                      "30k",
+                      "50000",
                       r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2\camera_path.json',
                       r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_blocks_2_36')
 

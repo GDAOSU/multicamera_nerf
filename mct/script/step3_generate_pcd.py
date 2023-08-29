@@ -66,7 +66,7 @@ def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir):
         pcd.colors = o3d.utility.Vector3dVector(rgbs.numpy())
         tpcd = o3d.t.geometry.PointCloud.from_legacy(pcd)
         tpcd.point.colors = (tpcd.point.colors * 255).to(o3d.core.Dtype.UInt8)
-        o3d.t.io.write_point_cloud(os.path.join(out_dir, "{}.ply".format(id)), tpcd)
+        o3d.t.io.write_point_cloud(os.path.join(out_dir, "block_{}.ply".format(id)), tpcd)
     points=torch.cat(pcd_pts_list)
     rgbs=torch.cat(pcd_rgb_list)
     pcd = o3d.geometry.PointCloud()
@@ -76,7 +76,7 @@ def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir):
     # The legacy PLY writer converts colors to UInt8,
     # let us do the same to save space.
     tpcd.point.colors = (tpcd.point.colors * 255).to(o3d.core.Dtype.UInt8)
-    o3d.t.io.write_point_cloud(os.path.join(out_dir, "pcd.ply"), tpcd)
+    o3d.t.io.write_point_cloud(os.path.join(out_dir, "whole.ply"), tpcd)
     torch.cuda.empty_cache()
                     
 
@@ -84,7 +84,9 @@ def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir):
 # generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16','30k',10000000,
 #              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_dense2_blocks16')
 
-generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36','30k',10000000,
+
+
+generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36','50000',10000000,
              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_dense2_blocks36')
 
 

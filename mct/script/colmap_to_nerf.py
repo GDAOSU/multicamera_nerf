@@ -6,9 +6,8 @@ import math
 import os
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
-
 import read_write_model as colmap
+from scipy.spatial.transform import Rotation as R
 
 CameraModel = collections.namedtuple("CameraModel", ["model_id", "model_name", "num_params"])
 Camera = collections.namedtuple("Camera", ["id", "model", "width", "height", "params"])
@@ -323,4 +322,5 @@ def colmap2nerfcamerapath_intrinsic(colmap_folder,nerf_folder):
 #colmap2nerfcamerapath(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_full_800\dense\sparse',r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_full_800\dense')
 #colmap2nerfcamerapath(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense\sparse',r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense')
 #colmap2nerfcamerapath_intrinsic(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense\sparse',r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense')
-colmap2nerfcamerapath_intrinsic(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs\dense\sparse',r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs\dense')
+#colmap2nerfcamerapath_intrinsic(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs\dense\sparse',r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs\dense')
+colmap2nerfcamerapath_intrinsic(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\dense\sparse',r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\dense')

@@ -29,20 +29,14 @@ import numpy as np
 import open3d as o3d
 import pymeshlab
 import torch
-from rich.console import Console
-from rich.progress import (
-    BarColumn,
-    Progress,
-    TaskProgressColumn,
-    TextColumn,
-    TimeRemainingColumn,
-)
-from torchtyping import TensorType
-
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.data.datasets.base_dataset import InputDataset
 from nerfstudio.pipelines.base_pipeline import Pipeline, VanillaPipeline
 from nerfstudio.utils.rich_utils import ItersPerSecColumn
+from rich.console import Console
+from rich.progress import (BarColumn, Progress, TaskProgressColumn, TextColumn,
+                           TimeRemainingColumn)
+from torchtyping import TensorType
 
 CONSOLE = Console(width=120)
 
@@ -480,6 +474,7 @@ def generate_point_cloud_all_mct(
         points=[]
         rgbs=[]
         for camera_ray_bundle, batch in pipeline.datamanager.fixed_indices_eval_dataloader:
+            print("current index: ", batch["image_idx"])
             if batch["image_idx"]%skip_image!=0:
                 continue
             # time this the following line

@@ -7,8 +7,8 @@ import cv2
 def resize_imgs(in_dir,out_dir):
     img_dir=os.path.join(in_dir,"images")
     out_img_dir=os.path.join(out_dir,"images")
-    #os.mkdir(out_img_dir)
-    #process img
+    # os.mkdir(out_img_dir)
+    # #process img
     # imgs=glob.glob(os.path.join(img_dir,"*.jpg"))
     # for img in imgs:
     #     img_name=os.path.basename(img)
@@ -42,5 +42,9 @@ def resize_imgs(in_dir,out_dir):
 
 
 
-resize_imgs(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense',
-            r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2')
+# resize_imgs(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense',
+#             r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2')
+
+
+resize_imgs(r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\dense',
+            r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\dense_2')
