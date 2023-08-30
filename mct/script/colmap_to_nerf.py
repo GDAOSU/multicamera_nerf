@@ -80,7 +80,6 @@ class Image(BaseImage):
     def qvec2rotmat(self):
         return qvec2rotmat(self.qvec)
 
-
 def read_cameras_text(path):
     """
     see: src/base/reconstruction.cc
@@ -103,7 +102,6 @@ def read_cameras_text(path):
                 params = np.array(tuple(map(float, elems[4:])))
                 cameras[camera_id] = Camera(id=camera_id, model=model, width=width, height=height, params=params)
     return cameras
-
 
 def read_images_text(path):
     """
@@ -155,7 +153,6 @@ def colmap2nerf_trans(q,t,dis2m=1.0):
     R_cam=r_cam2cam@R_cam
     R_world=np.linalg.inv(R_cam)
     return R_world
-
 
 def colmap2nerf(colmap_folder,nerf_folder):
     a=1

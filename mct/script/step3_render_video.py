@@ -2,10 +2,12 @@ import glob
 import json
 import os
 from collections import defaultdict
+from contextlib import ExitStack
 from pathlib import Path
 
 os.environ['KMP_DUPLICATE_LIB_OK']='TRUE'
 import cv2
+import mediapy as media
 import numpy as np
 import torch
 from scipy.spatial.transform import Rotation as R
@@ -102,7 +104,7 @@ def merge_rendered_view_each_block(height,width,rendered_each_blocks,rendered_in
 ##data_dir: multi-camera tiling datasets
 ##trained_model_dir and timestamp: refer to step3_generate_pcd.py/generate_pcd()
 #camera_path_file: nerfstudio format, the pose should be in nerfstudio coordinates (not colmap coordiate). Refer to colmap_to_nerf.py/colmap2nerfcamerapath_intrinsic()
-def render_novel_view_mct(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
+def render_novel_view_mct_video(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir,fps,step):
 
     data_block_files=glob.glob(os.path.join(data_dir,"*"))
     block_ids=[]
@@ -113,88 +115,101 @@ def render_novel_view_mct(data_dir,trained_model_dir,timestamp,camera_path_file,
     #trained_model_config_files=glob.glob(os.path.join(trained_model_dir,"*/mct_mipnerf/0/config.yml"))
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
+
     with open(camera_path_file, "r", encoding="utf-8") as f:
         camera_path = json.load(f)
         cameras = get_path_from_json_intrinsic(camera_path)
-        for camera_idx in range(cameras.size):
-            camera=cameras[camera_idx]
-            intersection_bbox_list=calculate_intersection_area_inpixel(camera,block_ids,data_dir)
-            K=torch.tensor([[camera.fx[0], 0, camera.cx[0]], [0, camera.fy[0], camera.cy[0]], [0, 0, 1]])
-            c2w=camera.camera_to_worlds
-            height=camera.height[0]
-            width=camera.width[0]
-            rendered_each_block_imgs=[]
-            rendered_each_block_inter_bboxs=[]
-            #render for each block
-            #rendered_img=np.zeros((camera.height[0],camera.width[0],3))
-            for id,block_id in reversed(list(enumerate(block_ids))):
-                inter_bbox=intersection_bbox_list[id]
-                if inter_bbox[0]>=inter_bbox[1] or inter_bbox[2]>=inter_bbox[3]:
-                    continue
-                config_file=os.path.join(trained_model_dir,str(block_id)+"/mct_mipnerf/"+timestamp+"/config.yml")
-                if not os.path.exists(config_file):
-                    continue
-                _, pipeline, _, _ = eval_setup(Path(config_file),1024,test_mode="test")
-
-                ##apply input2nerf matrix to novel view camera pose
-                dataparser_scale=pipeline.datamanager.train_dataparser_outputs.dataparser_scale
-                dataparser_transform=pipeline.datamanager.train_dataparser_outputs.dataparser_transform
-                r=c2w[:3,:3]
-                C=c2w[:3,3]
-                transform_r=dataparser_transform[:3,:3]
-                transform_t=dataparser_transform[:3,3]
-                C=transform_r@C+transform_t
-                C*=dataparser_scale
-                r=transform_r@r
-                c2w_nerf=torch.zeros((3,4))
-                c2w_nerf[:3,3]=C
-                c2w_nerf[:3,:3]=r
-                camera_nerf=Cameras(
-                    fx=camera.fx,
-                    fy=camera.fy,
-                    cx=camera.cx,
-                    cy=camera.cy,
-                    camera_to_worlds=c2w_nerf,
-                    camera_type=camera.camera_type,
-                    times=camera.times,
+        cameras=get_interpolated_camera_path(cameras,step)
+        render_width = int(cameras[0].width[0])
+        render_height = int(cameras[0].height[0])
+        with ExitStack() as stack:
+            writer = stack.enter_context(
+                media.VideoWriter(
+                    path=os.path.join(out_dir,"out.mp4"),
+                    shape=(render_height, render_width),
+                    fps=fps,
                 )
+             )
+            for camera_idx in range(cameras.size):
+                camera=cameras[camera_idx]
+                intersection_bbox_list=calculate_intersection_area_inpixel(camera,block_ids,data_dir)
+                K=torch.tensor([[camera.fx[0], 0, camera.cx[0]], [0, camera.fy[0], camera.cy[0]], [0, 0, 1]])
+                c2w=camera.camera_to_worlds
+                height=camera.height[0]
+                width=camera.width[0]
+                rendered_each_block_imgs=[]
+                rendered_each_block_inter_bboxs=[]
+                #render for each block
+                #rendered_img=np.zeros((camera.height[0],camera.width[0],3))
+                for id,block_id in reversed(list(enumerate(block_ids))):
+                    inter_bbox=intersection_bbox_list[id]
+                    if inter_bbox[0]>=inter_bbox[1] or inter_bbox[2]>=inter_bbox[3]:
+                        continue
+                    config_file=os.path.join(trained_model_dir,str(block_id)+"/mct_mipnerf/"+timestamp+"/config.yml")
+                    if not os.path.exists(config_file):
+                        continue
+                    _, pipeline, _, _ = eval_setup(Path(config_file),1024,test_mode="test")
 
-                ## render novel view
-                camera_ray_bundle = camera_nerf.generate_rays(camera_indices=0, aabb_box=None)
+                    ##apply input2nerf matrix to novel view camera pose
+                    dataparser_scale=pipeline.datamanager.train_dataparser_outputs.dataparser_scale
+                    dataparser_transform=pipeline.datamanager.train_dataparser_outputs.dataparser_transform
+                    r=c2w[:3,:3]
+                    C=c2w[:3,3]
+                    transform_r=dataparser_transform[:3,:3]
+                    transform_t=dataparser_transform[:3,3]
+                    C=transform_r@C+transform_t
+                    C*=dataparser_scale
+                    r=transform_r@r
+                    c2w_nerf=torch.zeros((3,4))
+                    c2w_nerf[:3,3]=C
+                    c2w_nerf[:3,:3]=r
+                    camera_nerf=Cameras(
+                        fx=camera.fx,
+                        fy=camera.fy,
+                        cx=camera.cx,
+                        cy=camera.cy,
+                        camera_to_worlds=c2w_nerf,
+                        camera_type=camera.camera_type,
+                        times=camera.times,
+                    )
 
-                with torch.no_grad():
-                    ## render only within aoi_bbox
-                    xmin=inter_bbox[0]
-                    xmax=inter_bbox[1]
-                    ymin=inter_bbox[2]
-                    ymax=inter_bbox[3]
-                    aoi_height=ymax-ymin+1
-                    aoi_width=xmax-xmin+1
-                    outputs_list =[]
-                    for row in range(ymin,ymax+1):
-                        ray_bundle=camera_ray_bundle.flatten()[xmin+row*width:xmax+1+row*width]
-                        outputs = pipeline.model.forward(ray_bundle=ray_bundle.to(pipeline.device))
-                        outputs_list.append(outputs['rgb_fine'].cpu())
-                    output=torch.cat(outputs_list).view(aoi_height, aoi_width, -1)
-                    # for output_name, outputs_list in outputs_lists.items():
-                    #     if not torch.is_tensor(outputs_list[0]):
-                    #         # TODO: handle lists of tensors as well
-                    #         continue
-                    #     outputs[output_name] = torch.cat(outputs_list).view(aoi_height, aoi_width, -1)  # type: ignore
-                    #outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-                    output_image = output.numpy()*255
-                    output_image=output_image.astype(np.uint8)
-                    output_image=cv2.cvtColor(output_image,cv2.COLOR_BGR2RGB)
-                    # output_image_crop=np.zeros(output_image.shape,np.uint8)
-                    # output_image_crop[inter_bbox[2]:inter_bbox[3],inter_bbox[0]:inter_bbox[1],:]=output_image[inter_bbox[2]:inter_bbox[3],inter_bbox[0]:inter_bbox[1],:]
-                    cv2.imwrite(os.path.join(out_dir,"cam"+str(camera_idx)+"_block"+str(block_id)+".jpg"),output_image)
-                    rendered_each_block_imgs.append(output_image)
-                    rendered_each_block_inter_bboxs.append(inter_bbox)
-                
+                    ## render novel view
+                    camera_ray_bundle = camera_nerf.generate_rays(camera_indices=0, aabb_box=None)
 
-            ##merge rendered image each block together
-            rendered_img=merge_rendered_view_each_block(height,width,rendered_each_block_imgs,rendered_each_block_inter_bboxs)
-            cv2.imwrite(os.path.join(out_dir,"cam"+str(camera_idx))+".jpg",rendered_img)
+                    with torch.no_grad():
+                        ## render only within aoi_bbox
+                        xmin=inter_bbox[0]
+                        xmax=inter_bbox[1]
+                        ymin=inter_bbox[2]
+                        ymax=inter_bbox[3]
+                        aoi_height=ymax-ymin+1
+                        aoi_width=xmax-xmin+1
+                        outputs_list =[]
+                        for row in range(ymin,ymax+1):
+                            ray_bundle=camera_ray_bundle.flatten()[xmin+row*width:xmax+1+row*width]
+                            outputs = pipeline.model.forward(ray_bundle=ray_bundle.to(pipeline.device))
+                            outputs_list.append(outputs['rgb_fine'].cpu())
+                        output=torch.cat(outputs_list).view(aoi_height, aoi_width, -1)
+                        # for output_name, outputs_list in outputs_lists.items():
+                        #     if not torch.is_tensor(outputs_list[0]):
+                        #         # TODO: handle lists of tensors as well
+                        #         continue
+                        #     outputs[output_name] = torch.cat(outputs_list).view(aoi_height, aoi_width, -1)  # type: ignore
+                        #outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+                        output_image = output.numpy()*255
+                        output_image=output_image.astype(np.uint8)
+                        output_image=cv2.cvtColor(output_image,cv2.COLOR_BGR2RGB)
+                        # output_image_crop=np.zeros(output_image.shape,np.uint8)
+                        # output_image_crop[inter_bbox[2]:inter_bbox[3],inter_bbox[0]:inter_bbox[1],:]=output_image[inter_bbox[2]:inter_bbox[3],inter_bbox[0]:inter_bbox[1],:]
+                        #cv2.imwrite(os.path.join(out_dir,"cam"+str(camera_idx)+"_block"+str(block_id)+".jpg"),output_image)
+                        rendered_each_block_imgs.append(output_image)
+                        rendered_each_block_inter_bboxs.append(inter_bbox)
+                    
+                ##merge rendered image each block together
+                rendered_img=merge_rendered_view_each_block(height,width,rendered_each_block_imgs,rendered_each_block_inter_bboxs)
+                cv2.imwrite(os.path.join(out_dir,"cam"+str(camera_idx))+".jpg",rendered_img)
+                rendered_img=cv2.cvtColor(rendered_img,cv2.COLOR_RGB2BGR)
+                writer.add_image(rendered_img)
 
 def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
 
@@ -320,11 +335,11 @@ def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_f
 #                       r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_blocks_2_36')
 
 #
-render_novel_view_mct(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2',
+render_novel_view_mct_video(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2',
                       r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2',
                       "30000",
-                      r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2\camera_path4.json',
-                      r'J:\xuningli\cross-view\ns\nerfstudio\renders\geomvs_test2_1')
+                      r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2\camera_path3.json',
+                      r'J:\xuningli\cross-view\ns\nerfstudio\renders\geomvs_test2_video',5,5)
 
 
 

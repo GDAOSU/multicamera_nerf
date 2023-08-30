@@ -153,6 +153,19 @@
         "justMyCode":false
     },
     {
+      "name": "Python: tsdf mct mipnerf",
+      "type": "python",
+      "request": "launch",
+      "program": "scripts/exporter.py",
+      "console": "integratedTerminal",
+      "args": [
+                "tsdf_intrinsic",
+                "--load-config","outputs/usc_area1/0/mct_mipnerf/0/config.yml",
+               "--output-dir","mesh/usc_area1"
+        ],
+        "justMyCode":false
+    },
+    {
       "name": "Python: render pointcloud all mct mipnerf boordaux",
       "type": "python",
       "request": "launch",

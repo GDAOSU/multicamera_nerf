@@ -417,7 +417,7 @@ def export_textured_mesh(
         outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
 
     # save the texture image
-    texture_image = outputs["rgb"].cpu().numpy()
+    texture_image = outputs["rgb_fine"].cpu().numpy()
     media.write_image(str(output_dir / "material_0.png"), texture_image)
 
     CONSOLE.print("Writing relevant OBJ information to files...")

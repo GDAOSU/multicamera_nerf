@@ -20,6 +20,7 @@ Export utils such as structs, point cloud generation, and rendering code.
 
 from __future__ import annotations
 
+import random
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
@@ -29,14 +30,20 @@ import numpy as np
 import open3d as o3d
 import pymeshlab
 import torch
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from torchtyping import TensorType
+
 from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.data.datasets.base_dataset import InputDataset
 from nerfstudio.pipelines.base_pipeline import Pipeline, VanillaPipeline
 from nerfstudio.utils.rich_utils import ItersPerSecColumn
-from rich.console import Console
-from rich.progress import (BarColumn, Progress, TaskProgressColumn, TextColumn,
-                           TimeRemainingColumn)
-from torchtyping import TensorType
 
 CONSOLE = Console(width=120)
 
@@ -438,7 +445,8 @@ def generate_point_cloud_all_mct(
     shiftx: float=0.0,
     shifty: float=0.0,
     shiftz: float=0.0,
-    scale:float=0.0
+    scale:float=0.0,
+    skip_image:int=2
 
 ) -> o3d.geometry.PointCloud:
     """Generate a point cloud from a nerf.
@@ -468,69 +476,48 @@ def generate_point_cloud_all_mct(
     from PIL import Image
     num_imgs=len(pipeline.datamanager.fixed_indices_eval_dataloader)
     num_pts_per_img=int(num_pts/num_imgs)
-    skip_image=2
     with torch.no_grad():
         cnt=0
         points=[]
         rgbs=[]
         for camera_ray_bundle, batch in pipeline.datamanager.fixed_indices_eval_dataloader:
-            print("current index: ", batch["image_idx"])
+
             if batch["image_idx"]%skip_image!=0:
                 continue
+            print("current index: {}/{}".format(batch["image_idx"],num_imgs))
             # time this the following line
             camera_ray_bundle=camera_ray_bundle.to(torch.device("cpu"))
-            height, width = camera_ray_bundle.shape
             pt_name=str(cnt)+"_.ply"
             pt_path=str(output_dir / pt_name)
             if os.path.exists(pt_path):
                 continue
 
             num_rays_per_chunk = pipeline.model.config.eval_num_rays_per_chunk
-            image_height, image_width = camera_ray_bundle.origins.shape[:2]
             num_rays = len(camera_ray_bundle)
             depth_list = []
             rgb_list=[]
-            for i in range(0, num_rays, num_rays_per_chunk):
+            num_pts_per_img= num_pts_per_img if (num_pts_per_img<num_rays) else num_rays
+            indices = torch.tensor(random.sample(range(num_rays), k=num_pts_per_img)).long()
+            #indices=torch.tensor([0,2,4]).long()
+            sample_ray_bundle=camera_ray_bundle.flatten()[indices]
+            for i in range(0, num_pts_per_img, num_rays_per_chunk):
                 start_idx = i
                 end_idx = i + num_rays_per_chunk
-                ray_bundle = camera_ray_bundle.get_row_major_sliced_ray_bundle(start_idx, end_idx)
+                ray_bundle = sample_ray_bundle[start_idx:end_idx]
                 outputs = pipeline.model.forward(ray_bundle=ray_bundle.to(pipeline.device))
                 depth_list.append(outputs['depth_fine'].cpu())
                 rgb_list.append(outputs['rgb_fine'].cpu())
-
-            depth=torch.cat(depth_list).view(image_height, image_width, -1)
-            rgb=torch.cat(rgb_list).view(image_height, image_width, -1)
-
-            point=camera_ray_bundle.origins+camera_ray_bundle.directions*depth
+            depth=torch.cat(depth_list)
+            rgb=torch.cat(rgb_list)
+            point=sample_ray_bundle.origins+sample_ray_bundle.directions*depth
             point=point.view(-1,3)
             rgb=rgb.view(-1,3)
 
-            perm=torch.randperm(height*width)
-            indices=perm[:num_pts_per_img]
-            point=point[indices,:]
-            rgb=rgb[indices,:]
             points.append(point)
             rgbs.append(rgb)
         points=torch.cat(points)
         rgbs=torch.cat(rgbs)
         return points,rgbs
-        points=torch.cat(points)
-        rgbs=torch.cat(rgbs)
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points.double().numpy())
-        pcd.colors = o3d.utility.Vector3dVector(rgbs.double().numpy())
-        
-        shift=np.array([shiftx,shifty,shiftz])
-        pcd.scale(scale,center=np.zeros(3))
-        pcd.translate(shift)
-
-        tpcd = o3d.t.geometry.PointCloud.from_legacy(pcd)
-        # The legacy PLY writer converts colors to UInt8,
-        # let us do the same to save space.
-        tpcd.point.colors = (tpcd.point.colors * 255).to(o3d.core.Dtype.UInt8)
-
-        #o3d.t.io.write_point_cloud(str(output_dir / pt_name), tpcd)
-        return tpcd
 
 
 

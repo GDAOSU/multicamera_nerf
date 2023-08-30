@@ -58,7 +58,7 @@ def generate_pcd(config_file,num_pts,out_dir):
 
 generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\usc_area1\0\mct_mipnerf\0\config.yml',
              5000000,
-             r'J:\xuningli\cross-view\ns\nerfstudio\pcd\usc_area1_test')
+             r'J:\xuningli\cross-view\ns\nerfstudio\pcd\test')
 
 # generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\usc_area2\0\mct_mipnerf\0\config.yml',
 #              5000000,

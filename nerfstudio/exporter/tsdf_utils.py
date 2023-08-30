@@ -20,6 +20,7 @@ TSDF utils.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
@@ -32,6 +33,7 @@ from rich.console import Console
 from skimage import measure
 from torchtyping import TensorType
 
+from nerfstudio.cameras.cameras import Cameras, CameraType
 from nerfstudio.exporter.exporter_utils import Mesh, render_trajectory
 from nerfstudio.pipelines.base_pipeline import Pipeline
 
@@ -336,6 +338,118 @@ def export_tsdf_mesh(
     K: TensorType["N", 3, 3] = cameras.get_intrinsics_matrices().to(device)
     color_images = torch.tensor(np.array(color_images), device=device).permute(0, 3, 1, 2)  # shape (N, 3, H, W)
     depth_images = torch.tensor(np.array(depth_images), device=device).permute(0, 3, 1, 2)  # shape (N, 1, H, W)
+
+    CONSOLE.print("Integrating the TSDF")
+    for i in range(0, len(c2w), batch_size):
+        tsdf.integrate_tsdf(
+            c2w[i : i + batch_size],
+            K[i : i + batch_size],
+            depth_images[i : i + batch_size],
+            color_images=color_images[i : i + batch_size],
+        )
+
+    CONSOLE.print("Computing Mesh")
+    mesh = tsdf.get_mesh()
+    CONSOLE.print("Saving TSDF Mesh")
+    tsdf.export_mesh(mesh, filename=str(output_dir / "tsdf_mesh.ply"))
+
+
+def export_tsdf_mesh_intrinsic(
+    pipeline: Pipeline,
+    output_dir: Path,
+    downscale_factor: int = 2,
+    depth_output_name: str = "depth_fine",
+    rgb_output_name: str = "rgb_fine",
+    resolution: Union[int, List[int]] = field(default_factory=lambda: [256, 256, 256]),
+    batch_size: int = 10,
+    use_bounding_box: bool = True,
+    bounding_box_min: Tuple[float, float, float] = (-1.0, -1.0, -1.0),
+    bounding_box_max: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+    height:int=1024,
+    width:int=1024,
+    focal:float=1024.0
+) -> None:
+    """Export a TSDF mesh from a pipeline.
+
+    Args:
+        pipeline: The pipeline to export the mesh from.
+        output_dir: The directory to save the mesh to.
+        downscale_factor: Downscale factor for the images.
+        depth_output_name: Name of the depth output.
+        rgb_output_name: Name of the RGB output.
+        resolution: Resolution of the TSDF volume or [x, y, z] resolutions individually.
+        batch_size: How many depth images to integrate per batch.
+        use_bounding_box: Whether to use a bounding box for the TSDF volume.
+        bounding_box_min: Minimum coordinates of the bounding box.
+        bounding_box_max: Maximum coordinates of the bounding box.
+    """
+    device = pipeline.device
+
+    dataparser_outputs = pipeline.datamanager.train_dataset._dataparser_outputs  # pylint: disable=protected-access
+
+    # initialize the TSDF volume
+    if not use_bounding_box:
+        aabb = dataparser_outputs.scene_box.aabb
+    else:
+        aabb = torch.tensor([bounding_box_min, bounding_box_max])
+    if isinstance(resolution, int):
+        volume_dims = torch.tensor([resolution] * 3)
+    elif isinstance(resolution, List):
+        volume_dims = torch.tensor(resolution)
+    else:
+        raise ValueError("Resolution must be an int or a list.")
+    tsdf = TSDF.from_aabb(aabb, volume_dims=volume_dims)
+    # move TSDF to device
+    tsdf.to(device)
+
+    cameras = dataparser_outputs.cameras
+
+    c2w: TensorType["N", 3, 4] = cameras.camera_to_worlds
+    ind=torch.randint(c2w.shape[0],(20,))
+    c2w=c2w[ind]
+    fxs=torch.ones(c2w.shape[0]).float()*focal
+    fys=torch.ones(c2w.shape[0]).float()*focal
+    cxs=torch.ones(c2w.shape[0]).float()*width/2
+    cys=torch.ones(c2w.shape[0]).float()*height/2
+    heights=(torch.ones(c2w.shape[0])*height).long()
+    widths=(torch.ones(c2w.shape[0])*width).long()
+
+
+
+    cameras = Cameras(
+            camera_to_worlds=c2w,
+            fx=fxs,
+            fy=fys,
+            cx=cxs,
+            cy=cys,
+            height=heights,
+            width=widths,
+            camera_type=CameraType.PERSPECTIVE,
+        )
+    # we turn off distortion when populating the TSDF
+    color_images, depth_images = render_trajectory(
+        pipeline,
+        cameras,
+        rgb_output_name=rgb_output_name,
+        depth_output_name=depth_output_name,
+        rendered_resolution_scaling_factor=1.0 / downscale_factor,
+        disable_distortion=True,
+    )
+
+    # camera extrinsics and intrinsics
+    c2w: TensorType["N", 3, 4] = cameras.camera_to_worlds.to(device)
+    # make c2w homogeneous
+    c2w = torch.cat([c2w, torch.zeros(c2w.shape[0], 1, 4, device=device)], dim=1)
+    c2w[:, 3, 3] = 1
+    K: TensorType["N", 3, 3] = cameras.get_intrinsics_matrices().to(device)
+    color_images = torch.tensor(np.array(color_images), device=device).permute(0, 3, 1, 2)  # shape (N, 3, H, W)
+    depth_images = torch.tensor(np.array(depth_images), device=device).permute(0, 3, 1, 2)  # shape (N, 1, H, W)
+
+    torch.save(color_images,os.path.join(output_dir,"color_image.pt"))
+    torch.save(depth_images,os.path.join(output_dir,"depth_image.pt"))
+    torch.save(K,os.path.join(output_dir,"K.pt"))
+    torch.save(c2w,os.path.join(output_dir,"c2w.pt"))
+
 
     CONSOLE.print("Integrating the TSDF")
     for i in range(0, len(c2w), batch_size):

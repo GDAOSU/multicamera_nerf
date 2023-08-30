@@ -19,7 +19,7 @@ from nerfstudio.utils.eval_utils import eval_setup
 ## timestamp: "mct_mipnerf/"+timestamp+"/config.yml"
 ## num_pts: #pts for the whole point clouds, the #pts for each block will be equally divided
 
-def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir):
+def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir,skip_img=2):
     trained_blocks=glob.glob(os.path.join(trained_model_dir,"*"))
     num_blks=len(trained_blocks)
     num_pts_per_blk=int(num_pts/num_blks)
@@ -51,7 +51,8 @@ def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir):
             shiftx=shift[0],
             shifty=shift[1],
             shiftz=shift[2],
-            scale=scale
+            scale=scale,
+            skip_image=skip_img
         )
         points*=scale
         points+=shift.reshape(1,3)
@@ -84,9 +85,13 @@ def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir):
 # generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16','30k',10000000,
 #              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_dense2_blocks16')
 
+generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\boordaux_metashape_blocks_2_16','50000',10000000,
+             r'J:\xuningli\cross-view\ns\nerfstudio\pcd\boordaux_metashape_blocks_2_16',1)
 
+# generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36','50000',10000000,
+#              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_dense2_blocks36')
 
-generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36','50000',10000000,
-             r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_dense2_blocks36')
+# generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2','30000',10000000,
+#              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\geomvs_test2',2)
 
 
