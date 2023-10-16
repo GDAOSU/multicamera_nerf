@@ -49,28 +49,35 @@ def eval_psnr(predict_dir,gt_dir,cam_json):
 #           r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense\images',
 #           r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense\camera_path.json')
 
-gt=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2\dense\images\005_009_163000210.jpg')
-predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_blocks_2_16\30k_vis\new\10.jpg')
-gt=gt[3462:4062,2054:3030,:]
-predict=predict[3462:4062,2054:3030,:]
-cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\ours.png',predict)
-a=psnr(gt,predict)
-print(a)
+# gt=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2\dense\images\005_009_163000210.jpg')
+# predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_blocks_2_16\30k_vis\new\10.jpg')
+# gt=gt[3462:4062,2054:3030,:]
+# predict=predict[3462:4062,2054:3030,:]
+# cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\ours.png',predict)
+# a=psnr(gt,predict)
+# print(a)
 
-predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\10k\cam0.jpg')
-predict=predict[3462:4062,2054:3030,:]
-cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\10k.png',predict)
-a=psnr(gt,predict)
-print(a)
+# predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\10k\cam0.jpg')
+# predict=predict[3462:4062,2054:3030,:]
+# cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\10k.png',predict)
+# a=psnr(gt,predict)
+# print(a)
 
-predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\20k\cam0.jpg')
-predict=predict[3462:4062,2054:3030,:]
-cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\20k.png',predict)
-a=psnr(gt,predict)
-print(a)
+# predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\20k\cam0.jpg')
+# predict=predict[3462:4062,2054:3030,:]
+# cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\20k.png',predict)
+# a=psnr(gt,predict)
+# print(a)
 
-predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\60k\cam0.jpg')
-predict=predict[3462:4062,2054:3030,:]
-cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\60k.png',predict)
+# predict=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\60k\cam0.jpg')
+# predict=predict[3462:4062,2054:3030,:]
+# cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\60k.png',predict)
+# a=psnr(gt,predict)
+# print(a)
+
+predict=cv2.imread(r'J:\xuningli\cross-view\mega-nerf\renders\dortmund_2_6hrs\rgbs\000000.jpg')
+gt=cv2.imread(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2_offset\dense\images\001_010_145000281.jpg')
+gt=cv2.resize(gt,(2044,1533))
+#cv2.imwrite(r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense_2_mipnerf\mat\60k.png',predict)
 a=psnr(gt,predict)
 print(a)

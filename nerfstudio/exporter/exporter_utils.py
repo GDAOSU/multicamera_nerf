@@ -519,6 +519,97 @@ def generate_point_cloud_all_mct(
         rgbs=torch.cat(rgbs)
         return points,rgbs
 
+def generate_depth_rgb_all_mct(
+    pipeline: Pipeline,
+    rgb_output_name: str = "rgb_fine",
+    depth_output_name: str = "depth_fine",
+    output_dir: str="",
+    skip_image:int=2,
+    rgb_gt=True
+
+) -> o3d.geometry.PointCloud:
+    """Generate a point cloud from a nerf.
+
+    Args:
+        pipeline: Pipeline to evaluate with.
+        num_points: Number of points to generate. May result in less if outlier removal is used.
+        remove_outliers: Whether to remove outliers.
+        estimate_normals: Whether to estimate normals.
+        rgb_output_name: Name of the RGB output.
+        depth_output_name: Name of the depth output.
+        normal_output_name: Name of the normal output.
+        use_bounding_box: Whether to use a bounding box to sample points.
+        bounding_box_min: Minimum of the bounding box.
+        bounding_box_max: Maximum of the bounding box.
+        std_ratio: Threshold based on STD of the average distances across the point cloud to remove outliers.
+
+    Returns:
+        Point cloud.
+    """
+
+    # pylint: disable=too-many-statements
+    import os
+
+    import cv2
+    import numpy as np
+    from PIL import Image
+    num_imgs=len(pipeline.datamanager.fixed_indices_eval_dataloader)
+    device=pipeline.device
+    with torch.no_grad():
+        cnt=0
+        depths=[]
+        rgbs=[]
+        Ks=[]
+        c2ws=[]
+        for camera_ray_bundle, batch in pipeline.datamanager.fixed_indices_eval_dataloader:
+            camera=pipeline.datamanager.eval_dataset.cameras[camera_ray_bundle.camera_indices[0][0][0]]
+            c2w=camera.camera_to_worlds
+            c2w = torch.cat([c2w, torch.zeros(1, 4)], dim=0)
+            c2w[3, 3] = 1
+            c2w=c2w
+            height=camera.height
+            width=camera.width
+            fx=camera.fx
+            fy=camera.fy
+            cx=camera.cx
+            cy=camera.cy
+            K=torch.tensor([[fx,0,cx],[0,fy,cy],[0,0,1]])
+            if batch["image_idx"]%skip_image!=0:
+                continue
+            print("current index: {}/{}".format(batch["image_idx"],num_imgs))
+            # time this the following line
+            camera_ray_bundle=camera_ray_bundle.to(torch.device("cpu"))
+            pt_name=str(cnt)+"_.ply"
+            pt_path=str(output_dir / pt_name)
+            if os.path.exists(pt_path):
+                continue
+
+            num_rays_per_chunk = pipeline.model.config.eval_num_rays_per_chunk
+            num_rays = len(camera_ray_bundle)
+            depth_list = []
+            rgb_list=[]
+            #indices=torch.tensor([0,2,4]).long()
+            sample_ray_bundle=camera_ray_bundle.flatten()
+            for i in range(0, num_rays, num_rays_per_chunk):
+                start_idx = i
+                end_idx = i + num_rays_per_chunk
+                ray_bundle = sample_ray_bundle[start_idx:end_idx]
+                outputs = pipeline.model.forward(ray_bundle=ray_bundle.to(pipeline.device))
+                depth_list.append(outputs[depth_output_name].cpu())
+                rgb_list.append(outputs[rgb_output_name].cpu())
+            depth=torch.cat(depth_list).view(height,width)
+            if rgb_gt:
+                rgb=batch['image'].permute(2,0,1).cpu()
+            else:
+                rgb=torch.cat(rgb_list).view(height,width,3).permute(2,0,1)
+
+            
+            depths.append(depth.to(device))
+            rgbs.append(rgb.to(device))
+            Ks.append(K.to(device))
+            c2ws.append(c2w.to(device))
+
+        return depths,rgbs,c2ws,Ks
 
 
 

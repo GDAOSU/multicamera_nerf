@@ -1,0 +1,367 @@
+import copy
+import glob
+import json
+import os
+from collections import defaultdict
+from pathlib import Path
+
+from scipy.spatial import KDTree
+
+os.environ['KMP_DUPLICATE_LIB_OK']='TRUE'
+import cv2
+import numpy as np
+import torch
+from scipy.spatial.transform import Rotation as R
+from shapely.geometry import MultiPoint
+
+from nerfstudio.cameras.camera_paths import (
+    get_interpolated_camera_path,
+    get_path_from_json,
+    get_path_from_json_intrinsic,
+    get_path_from_json_transform,
+    get_spiral_path,
+)
+from nerfstudio.cameras.cameras import Cameras, CameraType
+from nerfstudio.pipelines.base_pipeline import Pipeline
+from nerfstudio.utils.eval_utils import eval_setup
+
+
+def nerf2colmap(nerf_pose):
+    c2w_nerf=torch.eye(4)
+    c2w_nerf[:3,:]=nerf_pose
+    w2c_nerf=torch.linalg.inv(c2w_nerf).numpy()
+
+    r=R.from_euler('x', -180, degrees=True).as_matrix()
+    r_cam2cam=np.identity(4)
+    r_cam2cam[:3,:3]=r
+
+    w2c=r_cam2cam@w2c_nerf
+
+    return torch.tensor(w2c)
+
+def get_distance_map(img):
+    gray=img
+    mask=(gray!=0).astype(np.uint8)
+    mask_inv=(gray==0).astype(np.uint8)
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    if len(contours)==0:
+        distance_map=np.zeros(img.shape,np.float32)
+        return distance_map
+    contours=np.squeeze(contours[0])
+    tree=KDTree(contours)
+    dmap=np.zeros((mask.shape),np.float32)
+    indy,indx=np.where(dmap==0)
+    indx=np.expand_dims(indx,axis=1)
+    indy=np.expand_dims(indy,axis=1)
+    im_coords=np.concatenate([indx,indy],axis=1)
+    dd,_=tree.query(im_coords,k=1)
+    distance_map=dd.reshape((img.shape[0],img.shape[1]))
+    distance_map[mask_inv]=0
+    return distance_map
+
+def feathering_blend(img_list,mask_list):
+    dist_sum=None
+    dist_list=[]
+    if len(img_list)==1:
+        return img_list[0]
+    for id,img in enumerate(img_list):
+        gray=img
+        y,x=np.where(mask_list[id]==True)
+        pixel_set=np.concatenate([np.expand_dims(x,axis=1),np.expand_dims(y,axis=1)],axis=1).astype(np.float32)
+        if pixel_set.shape[0]==0:
+            dist=np.zeros(mask_list[id].shape,dtype=np.float32)
+        else:
+            xmin=int(np.min(pixel_set[:,0]))
+            xmax=int(np.max(pixel_set[:,0]))
+            ymin=int(np.min(pixel_set[:,1]))
+            ymax=int(np.max(pixel_set[:,1]))
+
+            mask=np.invert(mask_list[id])
+            dist=np.zeros(mask.shape,dtype=np.float32)
+            dist_aoi=get_distance_map(gray[ymin:ymax,xmin:xmax])
+            dist[ymin:ymax,xmin:xmax]=dist_aoi
+            dist[mask]=0
+        if id==0:
+            dist_sum=dist
+        else:
+            dist_sum+=dist
+        dist_list.append(copy.deepcopy(dist))
+    
+    blend_img=None
+    for id,img in enumerate(img_list):
+        alpha=dist_list[id]/dist_sum
+        if id==0:
+            blend_img=alpha*img
+        else:
+            blend_img+=alpha*img
+    return blend_img
+
+def merge(img_list,mask_list):
+    dist_sum=None
+    dist_list=[]
+    if len(img_list)==1:
+        return img_list[0]
+    for id,img in enumerate(img_list):
+        gray=img
+        y,x=np.where(mask_list[id]==True)
+        pixel_set=np.concatenate([np.expand_dims(x,axis=1),np.expand_dims(y,axis=1)],axis=1).astype(np.float32)
+        xmin=int(np.min(pixel_set[:,0]))
+        xmax=int(np.max(pixel_set[:,0]))
+        ymin=int(np.min(pixel_set[:,1]))
+        ymax=int(np.max(pixel_set[:,1]))
+
+        mask=np.invert(mask_list[id])
+        dist=np.zeros(mask.shape,dtype=np.float32)
+        dist_aoi=get_distance_map(gray[ymin:ymax,xmin:xmax])
+        dist[ymin:ymax,xmin:xmax]=dist_aoi
+        if id==0:
+            dist_sum=dist
+        else:
+            dist_sum+=dist
+        dist_list.append(copy.deepcopy(dist))
+    
+    blend_img=None
+    for id,img in enumerate(img_list):
+        alpha=dist_list[id]/dist_sum
+        if id==0:
+            blend_img=alpha*img
+        else:
+            blend_img+=alpha*img
+    return blend_img
+
+
+## scene_aabb: [xmin,ymin,zmin,xmax,ymax,zmax], img_pose: 4x4, w2c
+def scenebbox_image_intersect_origin(scene_aabb, img_pose, img_K, width, height):
+    c2w = img_pose[:3, :]
+    vertex_world = np.array(
+        [
+            [scene_aabb[0], scene_aabb[1], scene_aabb[2], 1],
+            [scene_aabb[0], scene_aabb[4], scene_aabb[2], 1],
+            [scene_aabb[3], scene_aabb[4], scene_aabb[2], 1],
+            [scene_aabb[3], scene_aabb[1], scene_aabb[2], 1],
+            [scene_aabb[0], scene_aabb[1], scene_aabb[5], 1],
+            [scene_aabb[0], scene_aabb[4], scene_aabb[5], 1],
+            [scene_aabb[3], scene_aabb[4], scene_aabb[5], 1],
+            [scene_aabb[3], scene_aabb[1], scene_aabb[5], 1],
+        ]
+    )
+    vertex_pix = img_K @ c2w @ vertex_world.transpose()
+    vertex_pix[0, :] = vertex_pix[0, :] / vertex_pix[2, :]
+    vertex_pix[1, :] = vertex_pix[1, :] / vertex_pix[2, :]
+    vertex_pix[2, :] = vertex_pix[2, :] / vertex_pix[2, :]
+
+    bbox_proj = [np.min(vertex_pix[0, :]), np.max(vertex_pix[0, :]), np.min(vertex_pix[1, :]), np.max(vertex_pix[1, :])]
+    intersect_bbox = [
+        int(max(0, bbox_proj[0])),
+        int(min(width - 1, bbox_proj[1])),
+        int(max(0, bbox_proj[2])),
+        int(min(height - 1, bbox_proj[3])),
+    ]
+    if intersect_bbox[0] < intersect_bbox[1] and intersect_bbox[2] < intersect_bbox[3]:
+        xlen = intersect_bbox[1] - intersect_bbox[0]
+        ylen = intersect_bbox[3] - intersect_bbox[2]
+        return True, intersect_bbox
+        # if xlen * ylen / (width * height) > 0.8:
+        #     return True, intersect_bbox
+        # else:
+        #     return False, intersect_bbox
+    else:
+        return False, intersect_bbox
+
+def scenebbox_image_intersect(scene_aabb, img_pose, img_K, width, height):
+    c2w = img_pose[:3, :]
+    vertex_world = np.array(
+        [
+            [scene_aabb[0], scene_aabb[1], scene_aabb[2], 1],
+            [scene_aabb[0], scene_aabb[4], scene_aabb[2], 1],
+            [scene_aabb[3], scene_aabb[4], scene_aabb[2], 1],
+            [scene_aabb[3], scene_aabb[1], scene_aabb[2], 1],
+            [scene_aabb[0], scene_aabb[1], scene_aabb[5], 1],
+            [scene_aabb[0], scene_aabb[4], scene_aabb[5], 1],
+            [scene_aabb[3], scene_aabb[4], scene_aabb[5], 1],
+            [scene_aabb[3], scene_aabb[1], scene_aabb[5], 1],
+        ]
+    )
+    vertex_pix = img_K @ c2w @ vertex_world.transpose()
+    vertex_pix[0, :] = vertex_pix[0, :] / vertex_pix[2, :]
+    vertex_pix[1, :] = vertex_pix[1, :] / vertex_pix[2, :]
+    vertex_pix[2, :] = vertex_pix[2, :] / vertex_pix[2, :]
+
+    bbox_proj = [np.min(vertex_pix[0, :]), np.max(vertex_pix[0, :]), np.min(vertex_pix[1, :]), np.max(vertex_pix[1, :])]
+    intersect_bbox = [
+        int(max(0, bbox_proj[0])),
+        int(min(width - 1, bbox_proj[1])),
+        int(max(0, bbox_proj[2])),
+        int(min(height - 1, bbox_proj[3])),
+    ]
+    if intersect_bbox[0] < intersect_bbox[1] and intersect_bbox[2] < intersect_bbox[3]:
+        pts=[]
+        for i in range(vertex_pix.shape[1]):
+            pts.append([int(vertex_pix[0,i]),int(vertex_pix[1,i])])
+        mpt=MultiPoint(pts).convex_hull
+        coords=np.array(mpt.exterior.coords._coords).astype(np.int32)
+        img=np.zeros((height,width,3),dtype=np.uint8)
+        cv2.fillPoly(img,pts=[coords],color=(255,0,0))
+        mask=img[:,:,0]!=0
+        return True, mask
+    else:
+        return False, None
+
+### given a camera, find the intersection bbox in pixels for each block
+def calculate_intersection_area_inpixel_origin(camera,block_ids, data_dir):
+    K=torch.tensor([[camera.fx[0], 0, camera.cx[0]], [0, camera.fy[0], camera.cy[0]], [0, 0, 1]])
+    c2w=camera.camera_to_worlds
+    w2c=nerf2colmap(c2w)
+    height=camera.height[0]
+    width=camera.width[0]
+    inter_bbox_list=[]
+    for block_id in block_ids:
+        scene_bbox_file=os.path.join(data_dir,str(block_id)+"/dense/sparse/scene_bbox.txt")
+        scene_bbox=np.loadtxt(scene_bbox_file)
+        status,inter_bbox=scenebbox_image_intersect(scene_bbox,w2c.numpy(),K.numpy(),width,height)
+        inter_bbox_list.append(inter_bbox)
+        if status:
+            print("block {}: {}".format(block_id,inter_bbox))
+    return inter_bbox_list
+
+def calculate_intersection_area_inpixel(K,c2w,height,width,block_ids, data_dir):
+    w2c=nerf2colmap(c2w)
+    mask_list=[]
+    for block_id in block_ids:
+        scene_bbox_file=os.path.join(data_dir,str(block_id)+"/dense/sparse/scene_bbox.txt")
+        scene_bbox=np.loadtxt(scene_bbox_file)
+        status,mask=scenebbox_image_intersect(scene_bbox,w2c.numpy(),K.numpy(),width,height)
+        mask_list.append(mask)
+    return mask_list
+
+def merge_rendered_view_each_block_origin(height,width,rendered_each_blocks,rendered_inter_bboxs):
+    out_img=np.zeros((height,width,3),np.uint8)
+    for id,img in enumerate(rendered_each_blocks):
+        inter_bbox=rendered_inter_bboxs[id]
+        out_img[inter_bbox[2]:inter_bbox[3]+1,inter_bbox[0]:inter_bbox[1]+1,:]=img
+    return out_img
+
+def merge_rendered_view_each_block(height,width,rendered_each_blocks,masks):
+    out_img=np.zeros((height,width,3),np.uint8)
+    for id,img in enumerate(rendered_each_blocks):
+        mask=masks[id]
+        out_img[mask]=img[mask]
+    return out_img
+
+## render the images 
+##data_dir: multi-camera tiling datasets
+##trained_model_dir and timestamp: refer to step3_generate_pcd.py/generate_pcd()
+#camera_path_file: nerfstudio format, the pose should be in nerfstudio coordinates (not colmap coordiate). Refer to colmap_to_nerf.py/colmap2nerfcamerapath_intrinsic()
+
+def render_novel_view_mct(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
+    num_rays_per_chunk=1024
+    data_block_files=glob.glob(os.path.join(data_dir,"*"))
+    block_ids=[]
+    for block_file in data_block_files:
+        if os.path.isdir(block_file):
+            block_ids.append(int(os.path.basename(block_file)))
+    print("blocks are: {}".format(block_ids))
+    #trained_model_config_files=glob.glob(os.path.join(trained_model_dir,"*/mct_mipnerf/0/config.yml"))
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+    with open(camera_path_file, "r", encoding="utf-8") as f:
+        camera_path = json.load(f)
+        img_height=camera_path['render_height']
+        img_width=camera_path['render_width']
+        cameras_json = camera_path['camera_path']
+        for camera_id,camera_json in enumerate(cameras_json):
+
+            K=torch.tensor([[camera_json['fl_x'], 0, camera_json['cx']], [0, camera_json['fl_y'], camera_json['cy']], [0, 0, 1]])
+            c2w=torch.tensor(camera_json['camera_to_world']).view(4,4)
+            c2w=c2w[:3,:]
+            height=img_height
+            width=img_width
+            img_name=camera_json['image_name'][:-4]
+            out_name=os.path.join(out_dir,img_name+'.npy')
+            if os.path.exists(out_name):
+                continue
+            mask_list=calculate_intersection_area_inpixel(K,c2w,height,width,block_ids,data_dir)
+            
+            intersect=False
+            for mask in mask_list:
+                if mask is not None:
+                    intersect=True
+                    break
+
+            if not intersect:
+                continue
+            rendered_each_block_imgs=[]
+            rendered_each_block_masks=[]
+            #render for each block
+            for id,block_id in reversed(list(enumerate(block_ids))):
+                mask=mask_list[id]
+                if mask is None:
+                    continue
+                config_file=os.path.join(trained_model_dir,str(block_id)+"/mct_mipnerf/"+timestamp+"/config.yml")
+                if not os.path.exists(config_file):
+                    continue
+                _, pipeline, _, _ = eval_setup(Path(config_file),1024,test_mode="test")
+
+                ##apply input2nerf matrix to novel view camera pose
+                dataparser_scale=pipeline.datamanager.train_dataparser_outputs.dataparser_scale
+                dataparser_transform=pipeline.datamanager.train_dataparser_outputs.dataparser_transform
+                r=c2w[:3,:3]
+                C=c2w[:3,3]
+                transform_r=dataparser_transform[:3,:3]
+                transform_t=dataparser_transform[:3,3]
+                C=transform_r@C+transform_t
+                C*=dataparser_scale
+                r=transform_r@r
+                c2w_nerf=torch.zeros((3,4))
+                c2w_nerf[:3,3]=C
+                c2w_nerf[:3,:3]=r
+                camera_nerf=Cameras(
+                    fx=K[0,0],
+                    fy=K[1,1],
+                    cx=K[0,2],
+                    cy=K[1,2],
+                    camera_to_worlds=c2w_nerf,
+                    height=height,
+                    width=width
+                )
+                ## render novel view
+                camera_ray_bundle = camera_nerf.generate_rays(camera_indices=0, aabb_box=None).flatten()
+                mask_flatten=mask.flatten()
+                output_image=np.zeros((height*width))
+                with torch.no_grad():
+                    for i in range(0, height*width, width):
+                        start_idx = i
+                        end_idx = i + width
+                        mask_row=mask_flatten[start_idx:end_idx]
+                        idx=np.where(mask_row==True)[0]
+                        if idx.shape[0]==0:
+                            continue
+                        start_idx_true=np.min(idx)+start_idx
+                        end_idx_true=np.max(idx)+start_idx+1
+                        ray_bundle = camera_ray_bundle[start_idx_true:end_idx_true]
+                        cos_rays=-ray_bundle.directions[:,2] #nx1
+
+
+                        outputs = pipeline.model.forward(ray_bundle=ray_bundle.to(pipeline.device))
+                        depth=cos_rays*outputs['depth_fine'][:,0].cpu()
+                        output_image[start_idx_true:end_idx_true]=depth
+                    output_image=output_image.reshape(height,width)/dataparser_scale
+                    output_image=output_image.numpy().astype(np.float32)
+
+                    rendered_each_block_imgs.append(output_image)
+                    rendered_each_block_masks.append(mask)
+            
+            ##merge rendered image each block together
+            rendered_img=feathering_blend(rendered_each_block_imgs,rendered_each_block_masks)
+            np.save(os.path.join(out_dir,img_name),rendered_img)
+
+#
+render_novel_view_mct(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2',
+                      r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2',
+                      "30000",
+                      r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\dense\camera_path.json',
+                      r'J:\xuningli\cross-view\ns\nerfstudio\renders\geomvs_test2_depth')
+
+
+
+

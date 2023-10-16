@@ -190,6 +190,16 @@ def calculate_intersection_area_inpixel(camera,block_ids, data_dir):
         mask_list.append(mask)
     return mask_list
 
+def calculate_intersection_area_inpixel_rgb(K,c2w,height,width,block_ids, data_dir):
+    w2c=nerf2colmap(c2w)
+    mask_list=[]
+    for block_id in block_ids:
+        scene_bbox_file=os.path.join(data_dir,str(block_id)+"/dense/sparse/scene_bbox.txt")
+        scene_bbox=np.loadtxt(scene_bbox_file)
+        status,mask=scenebbox_image_intersect(scene_bbox,w2c.numpy(),K.numpy(),width,height)
+        mask_list.append(mask)
+    return mask_list
+
 def merge_rendered_view_each_block_origin(height,width,rendered_each_blocks,rendered_inter_bboxs):
     out_img=np.zeros((height,width,3),np.uint8)
     for id,img in enumerate(rendered_each_blocks):
@@ -208,7 +218,7 @@ def merge_rendered_view_each_block(height,width,rendered_each_blocks,masks):
 ##data_dir: multi-camera tiling datasets
 ##trained_model_dir and timestamp: refer to step3_generate_pcd.py/generate_pcd()
 #camera_path_file: nerfstudio format, the pose should be in nerfstudio coordinates (not colmap coordiate). Refer to colmap_to_nerf.py/colmap2nerfcamerapath_intrinsic()
-def render_novel_view_mct_origin(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
+def render_novel_view_mct_origin1(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
 
     data_block_files=glob.glob(os.path.join(data_dir,"*"))
     block_ids=[]
@@ -302,7 +312,7 @@ def render_novel_view_mct_origin(data_dir,trained_model_dir,timestamp,camera_pat
             rendered_img=merge_rendered_view_each_block(height,width,rendered_each_block_imgs,rendered_each_block_inter_bboxs)
             cv2.imwrite(os.path.join(out_dir,"cam"+str(camera_idx))+".jpg",rendered_img)
 
-def render_novel_view_mct(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
+def render_novel_view_mct_origin(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
     num_rays_per_chunk=1024
     data_block_files=glob.glob(os.path.join(data_dir,"*"))
     block_ids=[]
@@ -384,6 +394,113 @@ def render_novel_view_mct(data_dir,trained_model_dir,timestamp,camera_path_file,
             ##merge rendered image each block together
             rendered_img=feathering_blend(rendered_each_block_imgs,rendered_each_block_masks)
             cv2.imwrite(os.path.join(out_dir,"cam"+str(camera_idx))+".jpg",rendered_img)
+
+def render_novel_view_mct(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
+    num_rays_per_chunk=1024
+    data_block_files=glob.glob(os.path.join(data_dir,"*"))
+    block_ids=[]
+    for block_file in data_block_files:
+        if os.path.isdir(block_file):
+            block_ids.append(int(os.path.basename(block_file)))
+    print("blocks are: {}".format(block_ids))
+    #trained_model_config_files=glob.glob(os.path.join(trained_model_dir,"*/mct_mipnerf/0/config.yml"))
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+    with open(camera_path_file, "r", encoding="utf-8") as f:
+        camera_path = json.load(f)
+        cameras = get_path_from_json_intrinsic(camera_path)
+        cameras_json = camera_path['camera_path']
+        img_height=camera_path['render_height']
+        img_width=camera_path['render_width']
+        for camera_idx in range(cameras.size):
+            camera_json=cameras_json[camera_idx]
+            #mask_list=calculate_intersection_area_inpixel(camera,block_ids,data_dir)
+            K=torch.tensor([[camera_json['fl_x'], 0, camera_json['cx']], [0, camera_json['fl_y'], camera_json['cy']], [0, 0, 1]])
+            c2w=torch.tensor(camera_json['camera_to_world']).view(4,4)
+            c2w=c2w[:3,:]
+            height=img_height
+            width=img_width
+            img_name=cameras_json[camera_idx]['image_name'][:-4]+".png"
+
+            if os.path.exists(os.path.join(out_dir,img_name)):
+                print("{} exist".format(os.path.join(out_dir,img_name)))
+                continue
+
+            mask_list=calculate_intersection_area_inpixel_rgb(K,c2w,height,width,block_ids,data_dir)
+            
+            intersect=False
+            for mask in mask_list:
+                if mask is not None:
+                    intersect=True
+                    break
+
+            if not intersect:
+                continue
+
+            rendered_each_block_imgs=[]
+            rendered_each_block_masks=[]
+            #render for each block
+            #rendered_img=np.zeros((camera.height[0],camera.width[0],3))
+            for id,block_id in reversed(list(enumerate(block_ids))):
+                mask=mask_list[id]
+                if mask is None:
+                    continue
+                config_file=os.path.join(trained_model_dir,str(block_id)+"/mct_mipnerf/"+timestamp+"/config.yml")
+                if not os.path.exists(config_file):
+                    continue
+                _, pipeline, _, _ = eval_setup(Path(config_file),1024,test_mode="test")
+
+                ##apply input2nerf matrix to novel view camera pose
+                dataparser_scale=pipeline.datamanager.train_dataparser_outputs.dataparser_scale
+                dataparser_transform=pipeline.datamanager.train_dataparser_outputs.dataparser_transform
+                r=c2w[:3,:3]
+                C=c2w[:3,3]
+                transform_r=dataparser_transform[:3,:3]
+                transform_t=dataparser_transform[:3,3]
+                C=transform_r@C+transform_t
+                C*=dataparser_scale
+                r=transform_r@r
+                c2w_nerf=torch.zeros((3,4))
+                c2w_nerf[:3,3]=C
+                c2w_nerf[:3,:3]=r
+                camera_nerf=Cameras(
+                    fx=K[0,0],
+                    fy=K[1,1],
+                    cx=K[0,2],
+                    cy=K[1,2],
+                    camera_to_worlds=c2w_nerf,
+                    height=height,
+                    width=width
+                )
+                ## render novel view
+                camera_ray_bundle = camera_nerf.generate_rays(camera_indices=0, aabb_box=None).flatten()
+                mask_flatten=mask.flatten()
+                output_image=np.zeros((height*width,3))
+                with torch.no_grad():
+                    for i in range(0, height*width, width):
+                        start_idx = i
+                        end_idx = i + width
+                        mask_row=mask_flatten[start_idx:end_idx]
+                        idx=np.where(mask_row==True)[0]
+                        if idx.shape[0]==0:
+                            continue
+                        start_idx_true=np.min(idx)+start_idx
+                        end_idx_true=np.max(idx)+start_idx+1
+                        ray_bundle = camera_ray_bundle[start_idx_true:end_idx_true]
+                        outputs = pipeline.model.forward(ray_bundle=ray_bundle.to(pipeline.device))
+                        rgb=outputs['rgb_fine'].cpu()
+                        output_image[start_idx_true:end_idx_true,:]=rgb
+                    output_image=output_image.reshape(height,width,3)*255
+                    output_image=output_image.astype(np.uint8)
+
+                    rendered_each_block_imgs.append(output_image)
+                    rendered_each_block_masks.append(mask)
+            
+            ##merge rendered image each block together
+            rendered_img=feathering_blend(rendered_each_block_imgs,rendered_each_block_masks)
+            rendered_img=cv2.cvtColor(rendered_img,cv2.COLOR_BGR2RGB)
+            cv2.imwrite(os.path.join(out_dir,img_name),rendered_img)
+
 
 def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
 
@@ -504,12 +621,17 @@ def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_f
 #                       r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2\camera_path.json',
 #                       r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_blocks_2_36')
 
-#
-render_novel_view_mct(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2',
-                      r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2',
+# render_novel_view_mct(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2',
+#                       r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2',
+#                       "30000",
+#                       r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\dense\camera_path.json',
+#                       r'J:\xuningli\cross-view\ns\nerfstudio\renders\geomvs_test2_rgb')
+
+render_novel_view_mct(r'/research/GDA/xuningli/cross-view/ns/nerfstudio/data/geomvs_original/test2',
+                      r'/research/GDA/xuningli/cross-view/ns/nerfstudio/outputs/geomvs_test2',
                       "30000",
-                      r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2\camera_path_border.json',
-                      r'J:\xuningli\cross-view\ns\nerfstudio\renders\geomvs_test2_1')
+                      r'/research/GDA/xuningli/cross-view/ns/nerfstudio/data/geomvs_original/dense/camera_path.json',
+                      r'/research/GDA/xuningli/cross-view/ns/nerfstudio/renders/geomvs_test2_rgb')
 
 
 

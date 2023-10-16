@@ -70,6 +70,9 @@ def eval_setup(
     config_path: Path,
     eval_num_rays_per_chunk: Optional[int] = None,
     test_mode: Literal["test", "val", "inference","all"] = "all",
+    downsample_size:float=1.0,
+    coarse_sample: int=64,
+    fine_sample:int=64
 ) -> Tuple[TrainerConfig, Pipeline, Path, int]:
     """Shared setup for loading a saved pipeline for evaluation.
 
@@ -89,6 +92,7 @@ def eval_setup(
     config = yaml.load(config_path.read_text(), Loader=yaml.Loader)
     assert isinstance(config, TrainerConfig)
 
+
     if eval_num_rays_per_chunk:
         config.pipeline.model.eval_num_rays_per_chunk = eval_num_rays_per_chunk
 
@@ -96,7 +100,9 @@ def eval_setup(
     # TODO: expose the ability to choose an arbitrary checkpoint
     config.load_dir = config.get_checkpoint_dir()
     config.pipeline.datamanager.eval_image_indices = None
-
+    config.pipeline.datamanager.camera_res_scale_factor=downsample_size
+    config.pipeline.model.num_coarse_samples=coarse_sample
+    config.pipeline.model.num_importance_samples=fine_sample
     # setup pipeline (which includes the DataManager)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pipeline = config.pipeline.setup(device=device, test_mode=test_mode)

@@ -33,7 +33,7 @@ CONSOLE = Console(width=120)
 
 ## scene_aabb: [xmin,ymin,zmin,xmax,ymax,zmax], img_pose: 4x4, w2c
 def scenebbox_image_intersect(scene_aabb, img_pose, img_K, width, height):
-    c2w = img_pose[:3, :]
+    w2c = img_pose[:3, :]
     vertex_world = np.array(
         [
             [scene_aabb[0], scene_aabb[1], scene_aabb[2], 1],
@@ -46,10 +46,14 @@ def scenebbox_image_intersect(scene_aabb, img_pose, img_K, width, height):
             [scene_aabb[3], scene_aabb[1], scene_aabb[5], 1],
         ]
     )
-    vertex_pix = img_K @ c2w @ vertex_world.transpose()
+    vertex_pix = img_K @ w2c @ vertex_world.transpose()
     vertex_pix[0, :] = vertex_pix[0, :] / vertex_pix[2, :]
     vertex_pix[1, :] = vertex_pix[1, :] / vertex_pix[2, :]
     vertex_pix[2, :] = vertex_pix[2, :] / vertex_pix[2, :]
+
+    max_proj=np.max(vertex_pix)
+    min_proj=np.min(vertex_pix)
+
 
     bbox_proj = [np.min(vertex_pix[0, :]), np.max(vertex_pix[0, :]), np.min(vertex_pix[1, :]), np.max(vertex_pix[1, :])]
     intersect_bbox = [
@@ -58,7 +62,9 @@ def scenebbox_image_intersect(scene_aabb, img_pose, img_K, width, height):
         int(max(0, bbox_proj[2])),
         int(min(height - 1, bbox_proj[3])),
     ]
-    if intersect_bbox[0] < intersect_bbox[1] and intersect_bbox[2] < intersect_bbox[3]:
+    if max_proj>15000 or min_proj < -15000:
+        return False, intersect_bbox
+    elif intersect_bbox[0] < intersect_bbox[1] and intersect_bbox[2] < intersect_bbox[3]:
         xlen = intersect_bbox[1] - intersect_bbox[0]
         ylen = intersect_bbox[3] - intersect_bbox[2]
         return True, intersect_bbox
@@ -242,17 +248,20 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
 
     cams = read_cameras_text(os.path.join(in_dir, "sparse/cameras.txt"))
     imgs = read_images_text(os.path.join(in_dir, "sparse/images.txt"))
-    scene_bbox = np.loadtxt(os.path.join(in_dir, "sparse/scene_bbox.txt"))
-    ground_range = np.loadtxt(os.path.join(in_dir, "sparse/ground_range.txt"))
-    print("ground range: {}".format(ground_range))
+    #scene_bbox = np.loadtxt(os.path.join(in_dir, "sparse/scene_bbox.txt"))
+    #ground_range = np.loadtxt(os.path.join(in_dir, "sparse/ground_range.txt"))
+    #print("ground range: {}".format(ground_range))
     tiles_bbox = []
     if os.path.exists(scene_bbox_path):
         tile_bbox = list(np.loadtxt(scene_bbox_path))
+        ground_range=np.zeros(2)
         ground_range[0]=tile_bbox[2]
         ground_range[1]=tile_bbox[5]
         #tiles_bbox.append(tile_bbox)
         tiles_bbox=split_bbox(np.array(tile_bbox),num_tiles)
     else:
+        scene_bbox = np.loadtxt(os.path.join(in_dir, "sparse/scene_bbox.txt"))
+        ground_range = np.loadtxt(os.path.join(in_dir, "sparse/ground_range.txt"))
         tiles_bbox = split_bbox(scene_bbox, num_tiles)
     poses = []
     heights = []
@@ -334,7 +343,17 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
     ## crop images
     for img_id in range(poses.shape[0]):
         print("processing img:{}".format(img_id))
-        img_path = os.path.join(in_dir, "images/" + img_names[img_id])
+        img_name=img_names[img_id]
+        img_path = os.path.join(in_dir, "images/" + img_name)
+
+        load=False
+        for block_id in block_validimg_ids:
+            valid_ids = block_validimg_ids[block_id]
+            aoi_bboxs = block_validimg_aoibbox[block_id]
+            if img_id in valid_ids:
+                load=True
+        if not load:
+            continue
         img_arr = cv2.imread(img_path)
         for block_id in block_validimg_ids:
             valid_ids = block_validimg_ids[block_id]
@@ -344,13 +363,13 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
                 aoi_bbox = aoi_bboxs[ind]
                 img_aoi = img_arr[aoi_bbox[2] : aoi_bbox[3], aoi_bbox[0] : aoi_bbox[1], :]
                 img_musk=(np.sum(img_aoi,axis=2)>musk_thresh)*255
-                musk_name=img_names[img_id][:-4]+'_mask'+img_names[img_id][-4:]
+                musk_name=img_name[:-4]+'_mask'+img_name[-4:]
                 if np.sum(img_musk)==0:
                     valid_ids.remove(img_id)
                     aoi_bboxs.remove(aoi_bbox)
                     continue
                 cv2.imwrite(os.path.join(out_dir, str(block_id), "dense", "images", musk_name), img_musk)
-                cv2.imwrite(os.path.join(out_dir, str(block_id), "dense", "images", img_names[img_id]), img_aoi)
+                cv2.imwrite(os.path.join(out_dir, str(block_id), "dense", "images", img_name), img_aoi)
     
     
     for id, tile in enumerate(tiles_bbox):       
@@ -412,12 +431,12 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
 # num_split=4
 # scene_box_path=r''
 #bordaux
-in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\dense_2'
-out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\blocks_2_16'
-num_split=4
-scene_box_path=r''
-#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
-split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\dense_2'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\blocks_2_16'
+# num_split=4
+# scene_box_path=r''
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
 #dortmund blocks36
 # in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense'
@@ -443,3 +462,103 @@ split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 # scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2\scene_bbox.txt'
 # #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
 # split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+#osu_jull22 area1
+# in_dir=r'J:\data\UAV_images\2022Jul_Campus\Jul22\metashape\osu_campus_jul22'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area1'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area1\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+# #osu_jull22 area1
+# in_dir=r'J:\data\UAV_images\2022Jul_Campus\Jul22\metashape\osu_campus_jul22'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area2'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area2\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+#osu_jull22 area3
+# in_dir=r'J:\data\UAV_images\2022Jul_Campus\Jul22\metashape\osu_campus_jul22'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area3'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area3\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+#osu_jull22 area4
+# in_dir=r'J:\data\UAV_images\2022Jul_Campus\Jul22\metashape\osu_campus_jul22'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area4'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area4\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+# #osu_jull22 area2
+# in_dir=r'J:\data\UAV_images\2022Jul_Campus\Jul22\metashape\osu_campus_jul22'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area2'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area2\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+# #osu_jull22 area6
+# in_dir=r'J:\data\UAV_images\2022Jul_Campus\Jul22\metashape\osu_campus_jul22'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area6'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area6\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+# #osu_jull22 area7
+# in_dir=r'J:\data\UAV_images\2022Jul_Campus\Jul22\metashape\osu_campus_jul22'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area7'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\osu_jul22\area7\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+# #USC area7
+# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\usc\dense'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\usc\area7'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\usc\area7\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+#RA area1
+in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area1'
+num_split=1
+scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area1\scene_bbox.txt'
+#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+#RA area2
+in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area2'
+num_split=1
+scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area2\scene_bbox.txt'
+#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+#RA area3
+in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area3'
+num_split=1
+scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area3\scene_bbox.txt'
+#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+#RA area4
+in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area4'
+num_split=1
+scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area4\scene_bbox.txt'
+#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+
+
+
+

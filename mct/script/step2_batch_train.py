@@ -24,7 +24,7 @@ def batch_train(in_dir,out_dir,num_iters):
                 "--pipeline.datamanager.eval-num-images-to-sample-from=1",
                "--pipeline.datamanager.eval-num-times-to-repeat-images=100",
                "--pipeline.datamanager.train_num_rays_per_batch=2000",
-               "--pipeline.datamanager.dataparser.scene_scale","10",
+               "--pipeline.datamanager.dataparser.scene_scale","20",
                "--timestamp={}".format(num_iters),
                "--max-num-iterations={}".format(num_iters)]
         print(cmd)
@@ -57,9 +57,9 @@ def batch_train_retrain(in_dir,out_dir):
 #            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36',
 #            50000)
 
-batch_train(r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\blocks_2_16',
-           r'J:\xuningli\cross-view\ns\nerfstudio\outputs\boordaux_metashape_blocks_2_16',
-           50000)
+# batch_train(r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\blocks_2_16',
+#            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\boordaux_metashape_blocks_2_16',
+#            50000)
 
 # batch_train(r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\test2',
 #            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2',
@@ -69,6 +69,6 @@ batch_train(r'J:\xuningli\cross-view\ns\nerfstudio\data\boordaux_metashape\block
 #            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2',
 #            30000)
 
-# batch_train_retrain(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks_2_16',
-#             r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16')
+batch_train_retrain(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks_2_16',
+            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16')
 

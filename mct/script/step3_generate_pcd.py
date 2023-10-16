@@ -85,13 +85,16 @@ def generate_pcd(trained_model_dir,timestamp,num_pts,out_dir,skip_img=2):
 # generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16','30k',10000000,
 #              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_dense2_blocks16')
 
-generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\boordaux_metashape_blocks_2_16','50000',10000000,
-             r'J:\xuningli\cross-view\ns\nerfstudio\pcd\boordaux_metashape_blocks_2_16',1)
+# generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\boordaux_metashape_blocks_2_16','50000',10000000,
+#              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\boordaux_metashape_blocks_2_16',1)
 
-# generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36','50000',10000000,
-#              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_dense2_blocks36')
+# generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_36','50000',20000000,
+#              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\dortmund_2_blocks36',1)
 
-# generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2','30000',10000000,
-#              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\geomvs_test2',2)
+# generate_pcd(r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2','30000',40000000,
+#              r'J:\xuningli\cross-view\ns\nerfstudio\pcd\geomvs_test2',1)
+
+generate_pcd(r'/research/GDA/xuningli/cross-view/ns/nerfstudio/outputs/geomvs_test2','30000',100000000,
+             r'/research/GDA/xuningli/cross-view/ns/nerfstudio/pcd/geomvs_test2/new',1)
 
 

@@ -255,9 +255,6 @@ def colmap2nerfcamerapath(colmap_folder,nerf_folder):
         cy=cam[4][3]
 
         Rt_nerf=colmap2nerf_trans(img.qvec,img.tvec)
-
-        #shutil.copyfile(img.name,os.path.join(nerf_folder,"rgb",imgname))
-
         frame_json={}
         frame_json['camera_to_world']=[Rt_nerf[0,0],Rt_nerf[0,1],Rt_nerf[0,2],Rt_nerf[0,3],
                                         Rt_nerf[1,0],Rt_nerf[1,1],Rt_nerf[1,2],Rt_nerf[1,3],
@@ -272,7 +269,6 @@ def colmap2nerfcamerapath(colmap_folder,nerf_folder):
         outfile.write(json_object)
 
 def colmap2nerfcamerapath_intrinsic(colmap_folder,nerf_folder):
-
     import shutil
     a=1
     train_imgs = colmap.read_images_text(colmap_folder+"\images.txt")
