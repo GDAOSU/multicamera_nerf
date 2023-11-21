@@ -44,7 +44,8 @@ class MLP(FieldComponent):
         out_dim: Optional[int] = None,
         skip_connections: Optional[Tuple[int]] = None,
         activation: Optional[nn.Module] = nn.ReLU(),
-        out_activation: Optional[nn.Module] = None,
+        out_activation: Optional[nn.Module] = None
+
     ) -> None:
 
         super().__init__()

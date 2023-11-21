@@ -277,7 +277,11 @@ class HashEncoding(Encoding):
                 n_input_dims=3,
                 encoding_config=encoding_config,
             )
-
+        elif implementation == "torch":
+            self.hash_table = torch.rand(size=(self.hash_table_size * num_levels, features_per_level)) * 2 - 1
+            self.hash_table *= hash_init_scale
+            self.hash_table = nn.Parameter(self.hash_table)
+            
         if not TCNN_EXISTS or self.tcnn_encoding is None:
             assert (
                 interpolation is None or interpolation == "Linear"
