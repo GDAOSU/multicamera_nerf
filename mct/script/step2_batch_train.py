@@ -13,10 +13,10 @@ def batch_train(in_dir,out_dir,num_iters):
         if not os.path.isdir(block_path):
             continue
         block_id=int(os.path.basename(block_path))
-        pretrained_model_dir=os.path.join(out_dir,str(block_id)+"/mct_mipnerf/"+str(num_iters)+"/nerfstudio_models")
+        pretrained_model_dir=os.path.join(out_dir,str(block_id)+"/mct_nerfacto/"+str(num_iters)+"/nerfstudio_models")
         if os.path.exists(pretrained_model_dir):
             continue
-        cmd=["python","scripts/train.py","mct_mipnerf",
+        cmd=["python","scripts/train.py","mct_nerfacto",
              "--data="+block_path,
                "--output-dir="+out_dir,
                "--pipeline.datamanager.train-num-images-to-sample-from=10",
@@ -69,6 +69,10 @@ def batch_train_retrain(in_dir,out_dir):
 #            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\geomvs_test2',
 #            30000)
 
-batch_train_retrain(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks_2_16',
-            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16')
+# batch_train_retrain(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks_2_16',
+#             r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16')
+
+batch_train(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks_2_16',
+            r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks_2_16',
+            30000)
 
