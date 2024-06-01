@@ -46,7 +46,15 @@ def get_distance_map(img):
     if len(contours)==0:
         distance_map=np.zeros(img.shape,np.float64)
         return distance_map
-    contours=np.squeeze(contours[0])
+    max_pts=0
+    final_contour=None
+    for contour in contours:
+        if contour.shape[0]>max_pts and contour.shape[0]>50:
+            final_contour=contour
+    if final_contour is None:
+        distance_map=np.zeros(img.shape,np.float64)
+        return distance_map
+    contours=np.squeeze(final_contour)
     tree=KDTree(contours)
     dmap=np.zeros((mask.shape),np.float64)
     indy,indx=np.where(dmap==0)
@@ -498,9 +506,10 @@ def render_novel_view_mct(data_dir,trained_model_dir,timestamp,camera_path_file,
             
             ##merge rendered image each block together
             rendered_img=feathering_blend(rendered_each_block_imgs,rendered_each_block_masks)
+            print(rendered_img.shape)
             rendered_img=cv2.cvtColor(rendered_img,cv2.COLOR_BGR2RGB)
+            print(rendered_img.shape)
             cv2.imwrite(os.path.join(out_dir,img_name),rendered_img)
-
 
 def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_file, out_dir):
 
@@ -588,7 +597,12 @@ def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_f
                     rendered_each_block_imgs.append(output_image)
                     rendered_each_block_inter_bboxs.append(inter_bbox)
         
-
+if __name__=="__main__":
+    render_novel_view_mct(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2_16',
+                          r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_dense_2_16_1',
+                          '30000',
+                          r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2\camera_path.json',
+                          r'J:\xuningli\cross-view\ns\nerfstudio\renders\dortmund_dense2_blocks16_1')
 # render_novel_view_mct(r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\blocks',
 #                       r'J:\xuningli\cross-view\ns\nerfstudio\outputs\dortmund_metashape_blocks16',
 #                       r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense\camera_path.json',
@@ -627,11 +641,11 @@ def render_novel_view_mct_vis(data_dir,trained_model_dir,timestamp,camera_path_f
 #                       r'J:\xuningli\cross-view\ns\nerfstudio\data\geomvs_original\dense\camera_path.json',
 #                       r'J:\xuningli\cross-view\ns\nerfstudio\renders\geomvs_test2_rgb')
 
-render_novel_view_mct(r'/research/GDA/xuningli/cross-view/ns/nerfstudio/data/geomvs_original/test2',
-                      r'/research/GDA/xuningli/cross-view/ns/nerfstudio/outputs/geomvs_test2',
-                      "30000",
-                      r'/research/GDA/xuningli/cross-view/ns/nerfstudio/data/geomvs_original/dense/camera_path.json',
-                      r'/research/GDA/xuningli/cross-view/ns/nerfstudio/renders/geomvs_test2_rgb')
+# render_novel_view_mct(r'/research/GDA/xuningli/cross-view/ns/nerfstudio/data/geomvs_original/test2',
+#                       r'/research/GDA/xuningli/cross-view/ns/nerfstudio/outputs/geomvs_test2',
+#                       "30000",
+#                       r'/research/GDA/xuningli/cross-view/ns/nerfstudio/data/geomvs_original/dense/camera_path.json',
+#                       r'/research/GDA/xuningli/cross-view/ns/nerfstudio/renders/geomvs_test2_rgb')
 
 
 

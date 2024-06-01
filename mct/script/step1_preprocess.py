@@ -418,7 +418,13 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
         cam_out.close()
         img_out.close()
 
-
+if __name__=='__main__':
+    in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2\dense'
+    out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\dortmund_metashape\dense_2_16'
+    num_split=4
+    scene_box_path=r''
+    #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+    split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
 # args = parser.parse_args()
 # in_dir = args.i
@@ -527,37 +533,37 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
 # #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
 # split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
-#RA area1
-in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
-out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area1'
-num_split=1
-scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area1\scene_bbox.txt'
-#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
-split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+# #RA area1
+# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area1'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area1\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
-#RA area2
-in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
-out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area2'
-num_split=1
-scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area2\scene_bbox.txt'
-#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
-split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+# #RA area2
+# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area2'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area2\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
-#RA area3
-in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
-out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area3'
-num_split=1
-scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area3\scene_bbox.txt'
-#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
-split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+# #RA area3
+# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area3'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area3\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
-#RA area4
-in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
-out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area4'
-num_split=1
-scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area4\scene_bbox.txt'
-#split_block_projection(in_dir, num_split, out_dir, scene_box_path)
-split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
+# #RA area4
+# in_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\dense'
+# out_dir=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area4'
+# num_split=1
+# scene_box_path=r'J:\xuningli\cross-view\ns\nerfstudio\data\ra\area4\scene_bbox.txt'
+# #split_block_projection(in_dir, num_split, out_dir, scene_box_path)
+# split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
 
 
 
