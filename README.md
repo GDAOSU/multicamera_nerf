@@ -51,7 +51,7 @@ cd mct
 pip install -e .
 ```
 # Datasets
-Please down the demo data via this link. The data structure is shown below, where "/mct_data/data" contains images with poses in COLMAP format in 7 blocks and a whole dataset in dortmund, and "/mct_data/pcd" contains the generated dense point cloud by our methods.
+Please down the demo data via this [link](https://buckeyemailosu-my.sharepoint.com/:u:/g/personal/xu_3961_buckeyemail_osu_edu/EQPWDZYSurRKj2pNDYfvdjAB-_lTkBTkGFbmEZJj66iprQ?e=KhaxWc) . The data structure is shown below, where "/mct_data/data" contains images with poses in COLMAP format in 7 blocks and a whole dataset in dortmund, and "/mct_data/pcd" contains the generated dense point cloud by our methods.
 
 Each block contains the pre-tiled image patches, modified camera intrinsic & extrinsic parameters, as described in `step1_preprocess.py`
 ```
