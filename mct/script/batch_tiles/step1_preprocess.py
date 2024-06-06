@@ -421,7 +421,7 @@ def split_block_projection_new(in_dir, num_tiles=2, out_dir="", scene_bbox_path=
 if __name__=='__main__':
     in_dir=r'E:\data\mct_data\data\dortmund_whole'
     out_dir=r'E:\data\mct_data\data\dortmund_blocks'
-    num_split=4
+    num_split=16
     scene_box_path=r''
 
     split_block_projection_new(in_dir, num_split, out_dir, scene_box_path)
