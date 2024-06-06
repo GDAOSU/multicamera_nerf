@@ -29,19 +29,19 @@ Install pytorch with CUDA (this repo has been tested with CUDA 11.3 and CUDA 11.
 For CUDA 11.3:
 ```bash
 pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 -f https://download.pytorch.org/whl/torch_stable.html
-pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+(optional) pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 ```
 For CUDA 11.7:
 ```bash
 pip install torch==1.13.1 torchvision functorch --extra-index-url https://download.pytorch.org/whl/cu117
-pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+(optional) pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 ```
 See [Dependencies](https://github.com/nerfstudio-project/nerfstudio/blob/main/docs/quickstart/installation.md#dependencies)
 in the Installation documentation for more.
 ### Installing nerfstudio
 ```bash
-git clone [https://github.com/GDAOSU/MCT_NERF/edit/mct/README.md](https://github.com/GDAOSU/MCT_NERF)
-cd nerfstudio
+git clone https://github.com/GDAOSU/multicamera_nerf.git
+cd multicamera_nerf
 pip install --upgrade pip setuptools
 pip install -e .
 ```
@@ -51,7 +51,7 @@ cd mct
 pip install -e .
 ```
 # Datasets
-Please down the demo data via this [link](https://buckeyemailosu-my.sharepoint.com/:u:/g/personal/xu_3961_buckeyemail_osu_edu/EQPWDZYSurRKj2pNDYfvdjAB-_lTkBTkGFbmEZJj66iprQ?e=KhaxWc) . The data structure is shown below, where "/mct_data/data" contains images with poses in COLMAP format in 7 blocks and a whole dataset in dortmund, and "/mct_data/pcd" contains the generated dense point cloud by our methods.
+Please down the demo data via this [link](https://buckeyemailosu-my.sharepoint.com/:u:/g/personal/xu_3961_buckeyemail_osu_edu/EQPWDZYSurRKj2pNDYfvdjAB-_lTkBTkGFbmEZJj66iprQ?e=KhaxWc). The data structure is shown below, where "/mct_data/data" contains images with poses in COLMAP format in 7 blocks and a whole dataset in dortmund, and "/mct_data/pcd" contains the generated dense point cloud by our methods.
 
 Each block contains the pre-tiled image patches, modified camera intrinsic & extrinsic parameters, as described in `step1_preprocess.py`
 ```
@@ -68,6 +68,15 @@ mct_data
   |-ra_311.ply
   |- ...
 ```
+
+## Custom dataset
+For a set of images, you can use any sfm softwares (e.g. Colmap, OpenSfM, OpenDroneMap) to 
+
+0. You can take `mct_data/data/dortmund_whole` for example
+1. calculate the intrinsic & extrinsic parameters (be sure they are in gravity-aligned direction, e.g. use colmap/model_aligner if GPS info is available)
+2. perform undistortion
+3. transform the undistroted images /w camera parameters into colmap format (sparse/images.txt,sparse/cameras.txt, images/*.jpg)
+4. calculate the auxliary information (ground_range.txt, scene_bbox.txt)
 
 # Training & Generating point cloud from a single block
 Take demo data "ra_40" for example.
