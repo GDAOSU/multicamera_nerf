@@ -12,7 +12,7 @@ NeRF vs Multi-view stereo? We propose multi-camera tiling technique to enable Ne
 - [x] [08/30/2023] Release the code.  
 
 # Install
-
+The MCT-NeRF is implemented based on [nerfstudio/mip-nerf](https://github.com/nerfstudio-project/nerfstudio). 
 ## 1. Installation: Setup the environment
 ### Prerequisites
 You must have an NVIDIA video card with CUDA installed on the system. This library has been tested with version 11.3 of CUDA. You can find more information about installing CUDA [here](https://docs.nvidia.com/cuda/cuda-quick-start-guide/index.html).
