@@ -16,13 +16,11 @@ def single_block_train(in_dir,out_dir,num_iters):
     cmd=["python","scripts/train.py","mct_mipnerf",
             "--data="+block_path,
             "--output-dir="+out_dir,
-            "--pipeline.datamanager.dataparser.has_mask=False",
             "--pipeline.datamanager.train-num-images-to-sample-from=10",
             "--pipeline.datamanager.train-num-times-to-repeat-images=1000",
             "--pipeline.datamanager.eval-num-images-to-sample-from=1",
             "--pipeline.datamanager.eval-num-times-to-repeat-images=100",
             "--pipeline.datamanager.train_num_rays_per_batch=2000",
-            "--pipeline.datamanager.dataparser.scene_scale","20",
             "--timestamp={}".format(num_iters),
             "--max-num-iterations={}".format(num_iters)]
     print(cmd)
@@ -81,11 +79,11 @@ def generate_pcd_single_tile(trained_model_dir,timestamp,num_pts,out_dir,skip_im
          
 if __name__=='__main__':
     #parameters
-    data_dir=r'E:\data\mct_data\data\ra_40'  ### image&poses in colmap format, subfolder should be "dense"
-    trained_dir=r'E:\data\mct_data\outputs'  ### dir where trained model stored
+    data_dir=r'/mnt/f/OSU/Codes/multicamera_nerf/mct_data/data/ra_40'  ### image&poses in colmap format, subfolder should be "dense"
+    trained_dir=r'/mnt/f/OSU/Codes/multicamera_nerf/mct_data/outputs'  ### dir where trained model stored
     num_iters=500                            ### #training iterations, usually from 15000-60000
     num_pts=1000000                          ### #points for the inference
-    out_pcd_dir=r'E:\data\mct_data\pcd'      ### dir where point cloud stored
+    out_pcd_dir=r'/mnt/f/OSU/Codes/multicamera_nerf/mct_data/pcd'      ### dir where point cloud stored
     skip_img=1                               ### when generating point cloud, how many images should skip, 1 means no skip
     trained_model_dir=os.path.join(trained_dir,os.path.basename(data_dir))
 

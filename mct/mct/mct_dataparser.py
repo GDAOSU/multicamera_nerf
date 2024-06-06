@@ -48,13 +48,13 @@ class MCTDataParserConfig(DataParserConfig):
     """target class to instantiate"""
     data: Path = Path("")
     """Directory specifying location of data."""
-    scale_factor: float = 1.0
+    scale_factor: float =  1.0
     """How much to scale the camera origins by."""
     alpha_color: str = "black"
     """alpha color of background"""
     train_split_percentage: float = 0.99
     """The percent of images to use for training. The remaining images are for eval."""
-    scene_scale: float = 2.0
+    scene_scale: float = 20
     """How much to scale the region of interest by."""
     orientation_method: Literal["pca", "up", "none"] = "none"
     """The method to use for orientation."""
@@ -62,7 +62,7 @@ class MCTDataParserConfig(DataParserConfig):
     """Whether to automatically scale the poses to fit in +/- 1 bounding box."""
     center_poses: bool = False
     """Whether to center the poses."""
-    has_mask: bool=True
+    has_mask: bool= False
 
 @dataclass
 class MCT(DataParser):
@@ -85,7 +85,7 @@ class MCT(DataParser):
         # aoi_bbox = [-18, -13, -87, 1, 5, -80]
 
         image_filenames = []
-        has_mask = True
+        has_mask = False
         mask_filenames = []
         poses = []
 
