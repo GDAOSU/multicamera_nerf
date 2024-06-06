@@ -193,4 +193,5 @@ camera_paths/
 evaluation/
 mesh/
 pcd/
-
+.idea/
+mct_data/
