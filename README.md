@@ -1,5 +1,5 @@
-# Multi-tiling neural radiance field (NeRF)—geometric assessment on large-scale aerial datasets 
-Ningli Xu, Rongjun Qin, Debao Huang, Fabio Remondino
+# [Multi-tiling neural radiance field (NeRF)—geometric assessment on large-scale aerial datasets](https://arxiv.org/abs/2310.00530) 
+[Ningli Xu](https://ninglixu.github.io/), [Rongjun Qin](https://u.osu.edu/qin.324/), [Debao Huang](https://debaohuang.github.io/), [Fabio Remondino](https://3dom.fbk.eu/people/profile/remondino)  
 The Photogrammetric Record, 2024  
 
 ![alt text](comparison.png "Comparison between ours and SOTA MVS methods")
